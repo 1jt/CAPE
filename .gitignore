@@ -1,0 +1,17 @@
+target/
+build/
+cmake-build-*/
+.idea/
+.vscode/
+*.class
+*.so
+*.a
+*.o
+*.log
+core
+core.*
+results/quick_results.csv
+results/paper_results.csv
+results/.quick_*.csv
+results/.paper_*.csv
+results/logs/
