@@ -24,7 +24,7 @@ public class CapeCPirParams extends CapePirParams {
      * default params, aligned to CAPE.
      */
     public static final CapeCPirParams DEFAULT_PARAMS = new CapeCPirParams(
-        16384, 65537L, new int[0], 3, 40, 16, 3, true,
+        16384, 65537L, new int[]{60, 60, 60, 60, 60, 60, 60}, 3, 40, 16, 3, true,
         Math.pow(2.0, -CapePirParams.BLOOM_FALSE_POSITIVE_EXPONENT),
         new byte[CommonConstants.BLOCK_BYTE_LENGTH], CapePirQueryMethod.AND, 3
     );

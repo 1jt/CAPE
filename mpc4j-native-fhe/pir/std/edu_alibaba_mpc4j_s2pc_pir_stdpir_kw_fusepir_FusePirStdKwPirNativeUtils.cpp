@@ -306,11 +306,14 @@ namespace {
 }
 
 JNIEXPORT jbyteArray JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepir_FusePirStdKwPirNativeUtils_generateEncryptionParams
-    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray) {
+    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray coeff_modulus_bits) {
     try {
-        EncryptionParameters parms = create_default_bfv_parameters_128(
-            static_cast<size_t>(poly_modulus_degree), static_cast<uint64_t>(plain_modulus)
-        );
+        EncryptionParameters parms(scheme_type::bfv);
+        parms.set_poly_modulus_degree(static_cast<size_t>(poly_modulus_degree));
+        parms.set_plain_modulus(static_cast<uint64_t>(plain_modulus));
+        parms.set_coeff_modulus(CoeffModulus::Create(
+            static_cast<size_t>(poly_modulus_degree), jint_array_to_vector(env, coeff_modulus_bits)
+        ));
         SEALContext context = create_context_128(parms, "FUSE_PIR", __func__);
         log_bfv_parameter_summary("[FusePIR-PARAM]", "FusePIR", context, false);
         return serialize_encryption_parms(env, parms);
@@ -398,6 +401,8 @@ JNIEXPORT jobject JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepir_Fuse
 JNIEXPORT jobject JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepir_FusePirStdKwPirNativeUtils_generateLweToRgswKey
     (JNIEnv *env, jclass, jbyteArray parms_bytes, jbyteArray pk_bytes, jlongArray lwe_secret_key) {
     try {
+        // Reclaim the large RGSW key-generation scratch pool when this JNI call returns.
+        MMProfGuard temporary_pool_guard(make_unique<MMProfNew>());
         EncryptionParameters parms = deserialize_encryption_parms(env, parms_bytes);
         SEALContext context = create_context_128(parms, "FUSE_PIR", __func__);
         PublicKey public_key = deserialize_public_key(env, pk_bytes, context);
@@ -500,7 +505,8 @@ JNIEXPORT jobject JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepir_Fuse
                             continue;
                         }
                         uint64_t value = raw % parms.plain_modulus().value();
-                        int exponent = block_offset - col;
+                        int column_coefficient = col * blocks_per_packed_matrix;
+                        int exponent = block_offset - column_coefficient;
                         if (exponent >= 0) {
                             plain[static_cast<size_t>(exponent)] = value;
                         } else {
@@ -541,7 +547,7 @@ JNIEXPORT jobject JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepir_Fuse
         }
         jint packed_matrix_group_num = (payload_block_num + blocks_per_packed_matrix - 1)
             / blocks_per_packed_matrix;
-        jint row_stride = col_num + blocks_per_packed_matrix - 1;
+        jint row_stride = col_num * blocks_per_packed_matrix;
         if (matrix_rows.size() != static_cast<size_t>(packed_matrix_group_num * row_num)) {
             throw invalid_argument("encoded matrix size mismatch");
         }

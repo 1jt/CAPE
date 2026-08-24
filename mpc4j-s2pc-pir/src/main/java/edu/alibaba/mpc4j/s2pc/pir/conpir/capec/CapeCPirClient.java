@@ -162,6 +162,9 @@ public class CapeCPirClient<T> extends AbstractTwoPartyPto {
         for (byte[] keyItem : lweToRgswKey) {
             sendOtherPartyPayload(PtoStep.CLIENT_SEND_ANCHOR_EVAL_KEY_CHUNK.ordinal(), List.of(keyItem));
         }
+        // The RPC layer owns an independent copy after send. The client never uses the server-side
+        // evaluation key again, so release the serialized source before the server registers its native handle.
+        lweToRgswKey = null;
         List<byte[]> seedPayload = receiveOtherPartyPayload(PtoStep.SERVER_SEND_BFF_SEED.ordinal());
         MpcAbortPreconditions.checkArgument(seedPayload.size() == 2);
         bffSeed = BytesUtils.clone(seedPayload.get(0));

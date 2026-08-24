@@ -74,8 +74,11 @@ namespace seal
         inline void basered(const uint64_t *vec_in, vector<uint64_t> &vec_out, size_t in_cnt, const size_t sft) const
         {
             for (size_t i = 0; i < Qword; i++) {
-                int64_t source_start = static_cast<int64_t>(Qlen)
-                    - static_cast<int64_t>((i + 1) * targetP::Bgbit);
+                // CRTDecPoly consumes little-endian base-Bg digits and stores them in reverse
+                // order. Align to the padded gadget width, not to the exact bit length of Q:
+                // otherwise a short least-significant digit is shifted into the high bits of
+                // one limb and no longer matches the RGSW gadget powers.
+                int64_t source_start = static_cast<int64_t>((Qword - 1 - i) * targetP::Bgbit);
                 uint64_t digit = 0;
                 for (size_t bit = 0; bit < targetP::Bgbit; bit++) {
                     int64_t shifted_source = source_start + static_cast<int64_t>(bit);

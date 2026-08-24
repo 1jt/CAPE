@@ -442,7 +442,7 @@ namespace {
     };
 
     struct PrecomputedHashMaterial {
-        vector<fusepirc::RawRlwePrimeCipher> oneHotSelector;
+        vector<fusepirc::CachedRawRgswCipherNtt> colRgswBitsNtt;
         vector<fusepirc::CachedRawRgswCipherNtt> rowRgswBitsNtt;
         uint64_t colSecureMs = 0;
         uint64_t rowSecureMs = 0;
@@ -1066,15 +1066,14 @@ namespace {
         const fusepirc::CircuitBootstrapParams &cb_params, const FusePirCRawEncodedMatrix &encoded_matrix) {
         // FUSE_PIR_C online query is seed + bArray + metadata only.
         // For each BFF hash position, the server recovers LWE row/column bits from the seed,
-        // converts every bit with secure_lwe_to_rgsw, builds a Pirouette-style one-hot RawRLWE'
-        // column selector, selects the plaintext encoded column by exact gadget decomposition,
+        // converts every bit with secure_lwe_to_rgsw and evaluates the equivalent Pirouette
+        // column selection as a recursive CMUX tree,
         // and then applies raw row-to-zero BlindRotate. FUSE_PIR_C does not use the old RLWE column
         // query or the RawRLWE(X^col) monomial selector as the main path; setup evaluation keys
         // are not counted in online query size.
         auto total_start = Clock::now();
         auto step_start = Clock::now();
         validate_raw_encoded_matrix(encoded_matrix, cb_params.rlweParams);
-        bool cached_column_digits = has_cached_raw_matrix_column_decomposition(encoded_matrix);
         RecoveredFusePirCQueryBits query_bits = recover_lwe_bits_from_fusepirc_query(
             query, cb_params, encoded_matrix.rowNum, encoded_matrix.colNum
         );
@@ -1128,11 +1127,11 @@ namespace {
                 + ".row_rgsw_ntt_cache_ms=" + to_string(precomputed_hashes[hash_position].rowRgswNttCacheMs)
                 + ", cachedBitCount=" + to_string(precomputed_hashes[hash_position].rowRgswBitsNtt.size()));
             hash_step_start = Clock::now();
-            precomputed_hashes[hash_position].oneHotSelector =
-                fusepirc::build_one_hot_selector_from_rgsw_bits(
-                    col_rgsw_bits, encoded_matrix.colNum, cb_params.rlweParams, cb_params.gadgetParams,
-                    cb_params.externalProductParams, cb_params.rgswLayout
-                );
+            precomputed_hashes[hash_position].colRgswBitsNtt.reserve(col_rgsw_bits.size());
+            for (const fusepirc::RawRgswCipher &col_rgsw_bit : col_rgsw_bits) {
+                precomputed_hashes[hash_position].colRgswBitsNtt.push_back(
+                    fusepirc::make_cached_raw_rgsw_ntt(col_rgsw_bit, ntt_params));
+            }
             precomputed_hashes[hash_position].selectorMs = elapsed_ms(hash_step_start);
             precomputed_hashes[hash_position].convertedBitCount = converted_bits;
             total_secure_ms += precomputed_hashes[hash_position].colSecureMs
@@ -1141,8 +1140,8 @@ namespace {
             total_selector_ms += precomputed_hashes[hash_position].selectorMs;
             total_row_rgsw_ntt_cache_ms += precomputed_hashes[hash_position].rowRgswNttCacheMs;
             perf_log("generateReply.hash" + to_string(hash_position)
-                + ".one_hot_selector_ms=" + to_string(precomputed_hashes[hash_position].selectorMs)
-                + ", leaves=" + to_string(precomputed_hashes[hash_position].oneHotSelector.size()));
+                + ".column_selector_cache_ms=" + to_string(precomputed_hashes[hash_position].selectorMs)
+                + ", bitCount=" + to_string(precomputed_hashes[hash_position].colRgswBitsNtt.size()));
         }
         perf_log("generateReply.query_material_precompute"
             + string(", payloadBlockNum=") + to_string(encoded_matrix.payloadBlockNum)
@@ -1162,19 +1161,16 @@ namespace {
             };
             for (uint32_t hash_position = 0; hash_position < 3; hash_position++) {
                 auto hash_step_start = Clock::now();
-                fusepirc::RawRlweCipher selected_column = cached_column_digits
-                    ? fusepirc::select_plain_column_with_one_hot_selector_to_raw_rlwe_cached_digits(
-                        precomputed_hashes[hash_position].oneHotSelector, encoded_matrix.decomposedColumns[group],
-                        encoded_matrix.colNum, cb_params.rlweParams, cb_params.gadgetParams
-                    )
-                    : fusepirc::select_plain_column_with_one_hot_selector_to_raw_rlwe(
-                        precomputed_hashes[hash_position].oneHotSelector, encoded_matrix.columns[group],
-                        encoded_matrix.colNum, cb_params.rlweParams, cb_params.gadgetParams
-                    );
+                fusepirc::RawNttWorkspace column_ntt_workspace;
+                fusepirc::RawRlweCipher selected_column = fusepirc::select_plain_column_from_cached_rgsw_bits(
+                    precomputed_hashes[hash_position].colRgswBitsNtt, encoded_matrix.columns[group],
+                    encoded_matrix.colNum, cb_params.rlweParams, cb_params.externalProductParams,
+                    cb_params.rgswLayout, column_ntt_workspace
+                );
                 uint64_t column_ms = elapsed_ms(hash_step_start);
                 perf_log("generateReply.hash" + to_string(hash_position)
                     + ".column_selection_ms=" + to_string(column_ms)
-                    + ", cachedDigits=" + string(cached_column_digits ? "true" : "false"));
+                    + ", evaluation=recursive_cmux");
                 hash_step_start = Clock::now();
                 fusepirc::RawNttWorkspace row_ntt_workspace;
                 fusepirc::RawRlweCipher selected_row = fusepirc::blind_rotate_row_to_zero_from_cached_rgsw_bits(
@@ -1213,7 +1209,7 @@ namespace {
         perf_log("generateReply.secure_lwe_to_rgsw_total_ms=" + to_string(total_secure_ms)
             + ", secure_lwe_to_rgsw_converted_bits=" + to_string(total_converted_bits)
             + ", secure_lwe_to_rgsw_avg_bit_ms=" + to_string(avg_bit_ms)
-            + ", one_hot_selector_total_ms=" + to_string(total_selector_ms)
+            + ", column_selector_cache_total_ms=" + to_string(total_selector_ms)
             + ", column_selection_total_ms=" + to_string(total_column_ms)
             + ", row_rgsw_ntt_cache_total_ms=" + to_string(total_row_rgsw_ntt_cache_ms)
             + ", row_blind_rotate_total_ms=" + to_string(total_row_ms)
@@ -1226,11 +1222,14 @@ namespace {
 }
 
 JNIEXPORT jbyteArray JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_stdpir_kw_fusepirc_FusePirCStdKwPirNativeUtils_generateEncryptionParams
-    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray) {
+    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray coeff_modulus_bits) {
     try {
-        EncryptionParameters parms = create_default_bfv_parameters_128(
-            static_cast<size_t>(poly_modulus_degree), static_cast<uint64_t>(plain_modulus)
-        );
+        EncryptionParameters parms(scheme_type::bfv);
+        parms.set_poly_modulus_degree(static_cast<size_t>(poly_modulus_degree));
+        parms.set_plain_modulus(static_cast<uint64_t>(plain_modulus));
+        parms.set_coeff_modulus(CoeffModulus::Create(
+            static_cast<size_t>(poly_modulus_degree), jint_array_to_vector(env, coeff_modulus_bits)
+        ));
         SEALContext context = create_context_128(parms, "FUSE_PIR_C", __func__);
         log_bfv_parameter_summary("[FusePIR-C-PARAM]", "FusePIR-C", context, true);
         return serialize_encryption_parms(env, parms);

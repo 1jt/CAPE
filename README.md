@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-This repository is a standalone Open Science artifact for six PIR experiment implementations. It focuses on clean
-builds, real protocol execution, and reproducible performance measurements. Formal correctness validation of several
-low-level parameter configurations is ongoing; see [docs/CORRECTNESS_STATUS.md](docs/CORRECTNESS_STATUS.md).
+This repository is a standalone Open Science artifact for six PIR experiment implementations. It provides clean
+builds, real Client/Server protocol execution, configuration-specific correctness checks, and reproducible performance
+measurements. The release-gate evidence is summarized in [docs/CORRECTNESS_STATUS.md](docs/CORRECTNESS_STATUS.md).
 
 ## 2. Included Schemes
 
@@ -29,8 +29,8 @@ No other MPC4J PIR protocol is included as a public experiment entry.
 
 ## 4. System Requirements
 
-Validated on Ubuntu 22.04 with OpenJDK 17, Maven 3.9.x, GCC/G++ 11, and CMake 3.22+. The native build requires an
-installed Microsoft SEAL CMake package compatible with the source. At least 8 GB RAM is recommended; complete paper
+Validated on Ubuntu 22.04 with OpenJDK 17.0.19, Maven 3.9.9, GCC/G++ 11.4, CMake 3.22.1, and Microsoft SEAL 4.0.0.
+The native build requires an installed Microsoft SEAL CMake package compatible with the source. At least 8 GB RAM is recommended; complete paper
 experiments need substantially more time and may benefit from additional memory.
 
 Runtime depends on CPU, memory bandwidth, compiler, and system load. The evaluator does not need the authors' CPU.
@@ -43,6 +43,13 @@ Runtime depends on CPU, memory bandwidth, compiler, and system load. The evaluat
 
 The script checks required tools, builds `libmpc4j-native-fhe.so`, and packages the standalone Java runner. It does not
 run the long experiment suite.
+
+The equivalent component commands are:
+
+```bash
+./scripts/build_native.sh
+mvn -pl mpc4j-s2pc-pir -am -DskipTests package
+```
 
 ## 6. Quick Start
 
@@ -61,7 +68,27 @@ The deterministic synthetic dataset uses seed 2026. Schemes in the same single-k
 the same logical workload. Quick mode reduces database and query counts only; it does not select RAW correctness
 parameters or lower the schemes' cryptographic parameter sets.
 
-## 7. Reproducing the Paper Experiments
+Run one single-keyword or conjunctive scheme directly when a full sweep is unnecessary:
+
+```bash
+./scripts/run_experiment.sh --scheme FusePIR --keyword-num 4 --values-per-keyword 3 --value-bit-length 128 --q 1
+./scripts/run_experiment.sh --scheme CAPE --keyword-num 4 --values-per-keyword 3 --value-bit-length 128 --q 3
+```
+
+## 7. Fixed Cryptographic Parameters
+
+The four contributed schemes use the following release parameters in both Java and JNI/native context creation:
+
+```text
+polyModulusDegree = 16384
+plainModulus = 65537
+coeffModulusBits = [60,60,60,60,60,60,60]
+```
+
+The quick workload reduces only the database dimensions and number of queries. It does not replace these parameters
+with `BFVDefault`, RAW/toy parameters, or a lower-modulus configuration.
+
+## 8. Reproducing the Paper Experiments
 
 Run selected configurations explicitly:
 
@@ -82,7 +109,7 @@ To run the complete recorded matrix:
 
 This can require many hours or days. It is never started by `build.sh` or the default quick command.
 
-## 8. Output Format
+## 9. Output Format
 
 CSV columns are:
 
@@ -102,19 +129,25 @@ execution_status,correctness_status
 Setup material such as public, relinearization, Galois, LWE-to-RGSW, and circuit-bootstrap keys is excluded from online
 query size. Metrics are measured from the current run and are not copied from a paper spreadsheet or reference log.
 
-## 9. Expected Trends
+## 10. Correctness Gate
+
+For FusePIR, FusePIR-C, CAPE, and CAPE-C, the release gate exercises `init`, query generation, server answer,
+decryption, decode/filter, and deterministic expected-result comparison with the fixed parameters above. A CSV row is
+`VERIFIED` only after that comparison passes. The runner preserves exceptions and mismatches as failures.
+
+## 11. Expected Trends
 
 The compressed schemes trade server computation for communication. In successful comparable runs, FusePIR-C and
 CAPE-C are expected to send smaller online queries than their uncompressed counterparts. CAPE/CAPE-C use packed
 candidate-oriented responses rather than returning the complete global value universe. Scripts do not enforce a fixed
 ratio and never rewrite measured results to manufacture these trends.
 
-## 10. Hardware Notes
+## 12. Hardware Notes
 
 Timing values are hardware-dependent. Compare communication sizes directly and treat runtime comparisons as trends
 unless runs use the same machine, load, compiler, and configuration.
 
-## 11. Troubleshooting
+## 13. Troubleshooting
 
 - `SEALConfig.cmake` not found: install Microsoft SEAL and make its CMake package visible through the normal CMake
   search path or `CMAKE_PREFIX_PATH`.

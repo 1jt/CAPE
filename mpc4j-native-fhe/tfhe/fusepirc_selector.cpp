@@ -288,6 +288,52 @@ namespace seal {
             return selected;
         }
 
+        RawRlweCipher select_plain_column_from_cached_rgsw_bits(
+            const vector<CachedRawRgswCipherNtt> &index_bits_ntt, const vector<TorusPoly> &columns,
+            uint32_t col_num, const RawRlweParams &rlwe_params, const RawExternalProductParams &ep_params,
+            const RgswLayout &rgsw_layout, RawNttWorkspace &workspace) {
+            validate_selector_common(rlwe_params, ep_params, rgsw_layout);
+            if (col_num == 0 || columns.size() < col_num) {
+                throw invalid_argument("recursive column selection size mismatch");
+            }
+            uint32_t bit_num = ceil_log2_bound(col_num);
+            if (index_bits_ntt.size() != bit_num) {
+                throw invalid_argument("recursive column selector bit count mismatch");
+            }
+            uint32_t leaf_count = UINT32_C(1) << bit_num;
+            vector<RawRlweCipher> nodes;
+            nodes.reserve(leaf_count);
+            for (uint32_t column_index = 0; column_index < leaf_count; column_index++) {
+                TorusPoly column = column_index < col_num
+                    ? columns[column_index]
+                    : zero_poly(rlwe_params.degree, rlwe_params.modulus);
+                validate_torus_poly(column);
+                if (column.degree != rlwe_params.degree || column.modulus != rlwe_params.modulus) {
+                    throw invalid_argument("recursive column plaintext ring mismatch");
+                }
+                nodes.push_back(RawRlweCipher{
+                    zero_poly(rlwe_params.degree, rlwe_params.modulus), column, rlwe_params, false, 0
+                });
+            }
+            // Query bits are little-endian. At level j, bit j selects the upper or lower member of
+            // every adjacent pair. Inductively, each node after level j encrypts the column selected
+            // by bits [0, j], so the final node is exactly columns[index].
+            for (uint32_t bit_index = 0; bit_index < bit_num; bit_index++) {
+                vector<RawRlweCipher> next;
+                next.reserve(nodes.size() / 2);
+                for (size_t node_index = 0; node_index < nodes.size(); node_index += 2) {
+                    next.push_back(raw_cmux_cached_ntt(
+                        index_bits_ntt[bit_index], nodes[node_index + 1], nodes[node_index], ep_params, workspace
+                    ));
+                }
+                nodes = std::move(next);
+            }
+            if (nodes.size() != 1) {
+                throw invalid_argument("recursive column selection did not reduce to one ciphertext");
+            }
+            return nodes[0];
+        }
+
         RawRlweCipher blind_rotate_row_to_zero_from_rgsw_bits(
             const RawRlweCipher &packed_column, const vector<RawRgswCipher> &row_bits, uint32_t row_num,
             uint32_t row_stride, const RawRlweParams &rlwe_params, const RawExternalProductParams &ep_params,

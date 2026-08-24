@@ -28,11 +28,10 @@ public class CapePirParams {
     /**
      * default params.
      *
-     * <p>The SEAL/BFV layer uses SEAL's default tc128 coefficient modulus. Non-SEAL LWE/RGSW material is unchanged
-     * and requires separate security assessment.</p>
+     * <p>The artifact uses the paper implementation's fixed seven-prime coefficient-modulus chain.</p>
      */
     public static final CapePirParams DEFAULT_PARAMS = new CapePirParams(
-        16384, 65537L, new int[0], 3, 40, 16, 3, true,
+        16384, 65537L, new int[]{60, 60, 60, 60, 60, 60, 60}, 3, 40, 16, 3, true,
         Math.pow(2.0, -BLOOM_FALSE_POSITIVE_EXPONENT), new byte[CommonConstants.BLOCK_BYTE_LENGTH],
         CapePirQueryMethod.AND, 3
     );

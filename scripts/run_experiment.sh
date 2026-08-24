@@ -9,6 +9,7 @@ VALUE_BIT_LENGTH="16"
 Q="3"
 OUTPUT=""
 TIMEOUT_SECONDS="${SCHEME_TIMEOUT_SECONDS:-900}"
+JAVA_MAX_HEAP="${JAVA_MAX_HEAP:-2g}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -37,7 +38,7 @@ LOG_FILE="$ROOT_DIR/results/logs/${SCHEME//-/_}.log"
 echo "[INFO] Running $SCHEME (log: ${LOG_FILE#$ROOT_DIR/})"
 set +e
 LD_LIBRARY_PATH="$NATIVE_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" timeout --signal=TERM "$TIMEOUT_SECONDS" \
-  java --add-modules=jdk.incubator.vector -Xmx3g -jar "$JAR" \
+  java --add-modules=jdk.incubator.vector -Xmx"$JAVA_MAX_HEAP" -jar "$JAR" \
   --scheme "$SCHEME" --keyword-num "$KEYWORD_NUM" --values-per-keyword "$VALUES_PER_KEYWORD" \
   --value-bit-length "$VALUE_BIT_LENGTH" --q "$Q" --output "$OUTPUT" >"$LOG_FILE" 2>&1
 STATUS=$?

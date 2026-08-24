@@ -51,14 +51,14 @@ public class FusePirCStdKwPirParams implements StdKwPirParams {
      * CMUX candidate params.
      */
     public static final FusePirCStdKwPirParams CMUX_128_CANDIDATE_PARAMS = new FusePirCStdKwPirParams(
-        ParameterSet.CMUX_128_CANDIDATE, 16384, 65537L, new int[0], 3, 40, 16, 3, true,
+        ParameterSet.CMUX_128_CANDIDATE, 16384, 65537L, new int[]{60, 60, 60, 60, 60, 60, 60}, 3, 40, 16, 3, true,
         FusePirCLweParams.CMUX_128_CANDIDATE, FusePirCCircuitBootstrapParams.CMUX_128_CANDIDATE
     );
     /**
      * Layout fairness candidate params.
      */
     public static final FusePirCStdKwPirParams LAYOUT_16384_CANDIDATE_PARAMS = new FusePirCStdKwPirParams(
-        ParameterSet.LAYOUT_16384_CANDIDATE, 16384, 65537L, new int[0], 3, 40, 16, 3,
+        ParameterSet.LAYOUT_16384_CANDIDATE, 16384, 65537L, new int[]{60, 60, 60, 60, 60, 60, 60}, 3, 40, 16, 3,
         true, FusePirCLweParams.LAYOUT_16384_CANDIDATE, FusePirCCircuitBootstrapParams.LAYOUT_16384_CANDIDATE
     );
     /**

@@ -83,6 +83,11 @@ public class FusePirStdKwPirClient<T> extends AbstractStdKwPirClient<T> {
         publicKeyPayload.add(publicKey);
         publicKeyPayload.addAll(lweToRgswKey);
         sendOtherPartyPayload(PtoStep.CLIENT_SEND_PUBLIC_KEYS.ordinal(), publicKeyPayload);
+        // MemoryRpc owns independent receiver-side arrays after send returns. Release the serialized
+        // evaluation-key source while the server preprocesses instead of retaining two full copies.
+        publicKeyPayload.clear();
+        lweToRgswKey.clear();
+        System.gc();
         List<byte[]> seedPayload = receiveOtherPartyPayload(PtoStep.SERVER_SEND_BFF_SEED.ordinal());
         MpcAbortPreconditions.checkArgument(seedPayload.size() == 1);
         bffSeed = seedPayload.get(0);
@@ -131,7 +136,9 @@ public class FusePirStdKwPirClient<T> extends AbstractStdKwPirClient<T> {
         for (int position : positions) {
             int[] rowCol = FusePirStdKwPirUtils.getRowColFromBffIndex(position, params);
             byte[] columnQuery = FusePirStdKwPirNativeUtils.generateColumnQuery(
-                params.encryptionParams, publicKey, secretKey, rowCol[1], params.getMatrixColNum()
+                params.encryptionParams, publicKey, secretKey,
+                rowCol[1] * params.getBlocksPerPackedMatrix(),
+                params.getMatrixColNum() * params.getBlocksPerPackedMatrix()
             );
             columnQueries.add(columnQuery);
             columnQueryBytes += columnQuery.length;

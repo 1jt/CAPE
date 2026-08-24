@@ -568,11 +568,14 @@ static void add_all_slots_inplace(Evaluator &evaluator, Ciphertext &ciphertext, 
 }
 
 JNIEXPORT jbyteArray JNICALL Java_edu_alibaba_mpc4j_s2pc_pir_conpir_cape_CapePirNativeUtils_generateEncryptionParams
-    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray) {
+    (JNIEnv *env, jclass, jint poly_modulus_degree, jlong plain_modulus, jintArray coeff_modulus_bits) {
     try {
-        EncryptionParameters parms = create_default_bfv_parameters_128(
-            static_cast<size_t>(poly_modulus_degree), static_cast<uint64_t>(plain_modulus)
-        );
+        EncryptionParameters parms(scheme_type::bfv);
+        parms.set_poly_modulus_degree(static_cast<size_t>(poly_modulus_degree));
+        parms.set_plain_modulus(static_cast<uint64_t>(plain_modulus));
+        parms.set_coeff_modulus(CoeffModulus::Create(
+            static_cast<size_t>(poly_modulus_degree), jint_array_to_vector(env, coeff_modulus_bits)
+        ));
         SEALContext context = create_context_128(parms, "CAPE", __func__);
         log_bfv_parameter_summary("[CAPE-PARAM]", "CAPE", context, false);
         return serialize_encryption_parms(env, parms);

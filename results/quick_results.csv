@@ -1,0 +1,5 @@
+scheme,keyword_num,values_per_keyword,value_bit_length,conjunctive_keyword_num,preprocessing_ms,query_time_ms,query_size_bytes,response_size_bytes,execution_status,correctness_status
+FusePIR,4,3,128,1,7024,6806,2360220,1573025,PASS,VERIFIED
+FusePIR-C,4,3,128,1,4772,18282,106,32800,PASS,VERIFIED
+CAPE,4,3,128,3,11171,13073,3146924,1573025,PASS,VERIFIED
+CAPE-C,4,3,128,3,10484,15548,786852,1573025,PASS,VERIFIED

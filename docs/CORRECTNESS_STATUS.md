@@ -1,27 +1,30 @@
 # Correctness Status
 
-This document separates execution/measurement availability from formal correctness validation.
+This document records the configuration-specific correctness evidence used by the artifact release gate.
 
 ## FusePIR
 
 - The CRT decomposition carry-truncation correctness bug has been fixed.
-- N=8192 row 0/1/2 selection, packed response, packed/unpacked consistency, and a small E2E run passed.
-- The `DEFAULT_PARAMS` N=16384 E2E run has not completed because LWE-to-RGSW setup is lengthy.
-- The artifact therefore does not claim that every FusePIR parameter configuration is formally verified.
+- Dense multi-column selection, multiple packed blocks, three-share aggregation, multi-value payloads, and padding passed.
+- The full Client/Server E2E passed with N=16384, t=65537, and coefficient-modulus bits `[60,60,60,60,60,60,60]`.
 
 ## FusePIR-C
 
-- RAW N=16 development tests are incompatible with SEAL's standard polynomial degrees and are not an execution gate.
-- Secure `DEFAULT_PARAMS` formal E2E verification remains deferred to the correctness repair track.
+- The compressed LWE-to-RGSW query, recursive CMUX selector, candidate retrieval, and decode path passed a full E2E run.
+- RAW N=16 development tests are not part of the release gate and are not used by this artifact.
 
-## CAPE and CAPE-C
+## CAPE
 
-- The artifact contains the real experimental Client/Server implementations and records their actual outcomes.
-- Formal correctness repair and validation remain ongoing; no blanket formal-correctness claim is made.
+- Anchor retrieval, Bloom scoring, packed response generation, false-candidate rejection, and Client decode passed a full E2E run.
+
+## CAPE-C
+
+- Compressed anchor recovery, recursive CMUX selection, candidate value/Bloom retrieval, scoring, packed response, and decode passed a full E2E run.
 
 ## Baselines
 
 MMK and BKPIR retain their existing baseline E2E checks. A runner row is marked `VERIFIED` only when its decoded
 result is checked against the deterministic expected result. `UNVERIFIED` never means that an incorrect result passed.
 
-Correctness Repair Track R2-R5 remains deferred and is not part of the current artifact packaging step.
+The release evidence applies to the fixed artifact parameters and deterministic workloads documented in the README. It
+is not a blanket claim about historical toy/development parameter sets that are excluded from this repository.

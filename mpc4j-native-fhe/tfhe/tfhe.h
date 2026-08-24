@@ -22,7 +22,9 @@ namespace seal
             poly_modulus_degree = parms.poly_modulus_degree();
             coeff_modulus_size = parms.coeff_modulus().size();
             gadget_digit_count = rns_.Qword;
-            total_coeff_modulus_bit_count = rns_.Qlen;
+            // Gadget digits are base-Bg limbs. Use their padded width so GadgetRed has
+            // exactly the same powers as TFHERNS::basered / CRTDecPoly.
+            total_coeff_modulus_bit_count = rns_.Qword * targetP::Bgbit;
         }
         void encrypt(Plaintext &plain, RGSWCipher &cipher);
         void encrypt_zero(RLWECipher &cipher);

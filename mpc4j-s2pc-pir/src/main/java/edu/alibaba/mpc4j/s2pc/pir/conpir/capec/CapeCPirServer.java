@@ -184,9 +184,11 @@ public class CapeCPirServer<T> extends AbstractTwoPartyPto {
         checkInitialized();
         List<byte[]> bfvKeyPayload = receiveOtherPartyPayload(PtoStep.CLIENT_SEND_BFV_KEYS.ordinal());
         MpcAbortPreconditions.checkArgument(bfvKeyPayload.size() == 3);
-        publicKey = BytesUtils.clone(bfvKeyPayload.get(0));
-        relinKeys = BytesUtils.clone(bfvKeyPayload.get(1));
-        galoisKeys = BytesUtils.clone(bfvKeyPayload.get(2));
+        // RPC receive payloads are already receiver-owned. Retaining them avoids a second copy of the
+        // large setup material while the native evaluation-key handle is being constructed.
+        publicKey = bfvKeyPayload.get(0);
+        relinKeys = bfvKeyPayload.get(1);
+        galoisKeys = bfvKeyPayload.get(2);
         List<byte[]> metaPayload = receiveOtherPartyPayload(PtoStep.CLIENT_SEND_ANCHOR_EVAL_KEY_META.ordinal());
         MpcAbortPreconditions.checkArgument(metaPayload.size() == 1);
         SetupKeyMeta meta = decodeSetupKeyMeta(metaPayload.get(0));
@@ -194,7 +196,7 @@ public class CapeCPirServer<T> extends AbstractTwoPartyPto {
         for (int keyItemIndex = 0; keyItemIndex < meta.itemCount; keyItemIndex++) {
             List<byte[]> keyItemPayload = receiveOtherPartyPayload(PtoStep.CLIENT_SEND_ANCHOR_EVAL_KEY_CHUNK.ordinal());
             MpcAbortPreconditions.checkArgument(keyItemPayload.size() == 1);
-            lweToRgswKey.add(BytesUtils.clone(keyItemPayload.get(0)));
+            lweToRgswKey.add(keyItemPayload.get(0));
         }
         setupLweToRgswKeyBytes = byteLength(lweToRgswKey);
         MpcAbortPreconditions.checkArgument(setupLweToRgswKeyBytes == meta.totalBytes);

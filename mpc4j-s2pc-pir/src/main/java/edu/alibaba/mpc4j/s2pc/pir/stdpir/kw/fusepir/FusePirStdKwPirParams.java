@@ -23,7 +23,7 @@ public class FusePirStdKwPirParams implements StdKwPirParams {
      * default params
      */
     public static final FusePirStdKwPirParams DEFAULT_PARAMS = new FusePirStdKwPirParams(
-        16384, 65537L, new int[0], 3, 40, 16, 3, true
+        16384, 65537L, new int[]{60, 60, 60, 60, 60, 60, 60}, 3, 40, 16, 3, true
     );
     /**
      * poly modulus degree
@@ -146,8 +146,8 @@ public class FusePirStdKwPirParams implements StdKwPirParams {
         if (!enablePayloadSplit) {
             MathPreconditions.checkEqual("payload_block_num", "1", payloadBlockNum, 1);
         }
-        int maxRowStride = polyModulusDegree / matrixRowNum;
-        blocksPerPackedMatrix = Math.min(payloadBlockNum, maxRowStride - matrixColNum + 1);
+        int maxBlocksPerPackedMatrix = polyModulusDegree / (matrixRowNum * matrixColNum);
+        blocksPerPackedMatrix = Math.min(payloadBlockNum, maxBlocksPerPackedMatrix);
         MathPreconditions.checkPositive("blocks_per_packed_matrix", blocksPerPackedMatrix);
         packedMatrixGroupNum = CommonUtils.getUnitNum(payloadBlockNum, blocksPerPackedMatrix);
         encryptionParams = FusePirStdKwPirNativeUtils.generateEncryptionParams(
